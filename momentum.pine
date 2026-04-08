@@ -78,7 +78,7 @@ f_bbwp (_price, _bbwLen, _bbwpLen) =>
 bbwp = f_bbwp (close, 22, 233)
 bbwp_ma = ta.ema (bbwp, 5)
 // VOLATILITY
-float volatility = (bbwp_ma / 2) * 2
+float volatility = (bbwp / 2) * 2
 if volatility > 100 
     volatility:= 100
 float volatility_ratio = volatility / 2
@@ -93,38 +93,3 @@ series float momentum_ma = ta.ema((momentum * 1.1) - 5 , 5)
 
 plot(momentum, color = color.white)
 plot(momentum_ma, color = color.yellow)
-
-lbR = 5
-lbL = 5
-rangeUpper = 144
-rangeLower = 5
-
-_inRange(cond) =>
-    bars = ta.barssince(cond == true)
-    rangeLower <= bars and bars <= rangeUpper
-
-plFound = na(ta.pivotlow(momentum, lbL, lbR)) ? false : true
-phFound = na(ta.pivothigh(momentum, lbL, lbR)) ? false : true
-momentumHL = momentum[lbR] > ta.valuewhen(plFound, momentum[lbR], 1) and _inRange(plFound[1])
-momentumLL = momentum[lbR] < ta.valuewhen(plFound, momentum[lbR], 1) and _inRange(plFound[1])
-momentumHH = momentum[lbR] > ta.valuewhen(phFound, momentum[lbR], 1) and _inRange(phFound[1])
-momentumLH = momentum[lbR] < ta.valuewhen(phFound, momentum[lbR], 1) and _inRange(phFound[1])
-priceLL = low[lbR] < ta.valuewhen(plFound, low[lbR], 1)
-priceHL = low[lbR] > ta.valuewhen(plFound, low[lbR], 1)
-priceHH = high[lbR] > ta.valuewhen(phFound, high[lbR], 1)
-priceLH = high[lbR] < ta.valuewhen(phFound, high[lbR], 1)
-bullCond =  priceLL and momentumHL and plFound
-hiddenBullCond = priceHL and momentumLL and plFound
-bearCond = priceHH and momentumLH and phFound
-hiddenBearCond = priceLH and momentumHH and phFound
-
-bearColor = color.red
-bullColor = color.green
-hiddenBullColor = color.rgb(26, 214, 158)
-hiddenBearColor = color.rgb(238, 123, 29)
-noneColor = color.new(color.white, 100)
-
-plot(plFound ? momentum[lbR] : na, offset = -lbR, color = bullCond ? bullColor : noneColor)
-plot(plFound ? momentum[lbR] : na, offset = -lbR, color = hiddenBullCond ? hiddenBullColor : noneColor)
-plot(phFound ? momentum[lbR] : na, offset = -lbR, color = bearCond ? bearColor : noneColor)
-plot(phFound ? momentum[lbR] : na, offset = -lbR, color = hiddenBearCond ? hiddenBearColor : noneColor)
