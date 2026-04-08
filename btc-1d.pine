@@ -1,27 +1,31 @@
-// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
 // © Ols87
+//@version=6
+strategy("BTC - 1D", overlay = true, initial_capital = 1000, currency = 'USD', default_qty_type = strategy.percent_of_equity, default_qty_value = 100, margin_long = 0, margin_short =  0)
+// TREND
 
-//@version=5
-strategy("BTC - 1D", overlay = true, initial_capital = 1000, currency = 'USD', default_qty_type = strategy.percent_of_equity, default_qty_value = 100)
-// FIB
-dist = ta.highest(high, 55) -  ta.lowest(low, 55)
-mid = ta.highest(high, 55) - (dist / 2)
-color = color.new(color.white, 0)
-mid_ma = ta.ema(mid, 55)
-bull_trend = mid_ma > mid_ma[1] and close > mid_ma
-bear_trend = mid_ma < mid_ma[1] and close < mid_ma
-if close > mid_ma or close < mid_ma
-    color:= color.new(color.white, 0)
-if bull_trend
-    color:= color.new(color.green, 0)
-if bear_trend
-    color:= color.new(color.red, 0)
-plot(mid_ma, color=color)
-long = close > mid_ma and close[1] > mid_ma and close[2] > mid_ma and close[3] > mid_ma
-exit = close < mid_ma and close[1] < mid_ma and close[2] < mid_ma and close[3] < mid_ma
-start_date = timestamp("2016-01-01T00:00:00")
+dist = ta.highest(high, 80) -  ta.lowest(low, 80)
+mid = ta.highest(high, 80) - (dist / 2)
+mid_ma = ta.ema(mid, 80)
+
+bull_trend = close > mid_ma
+bear_trend = close < mid_ma
+
+bull_trigger = bull_trend  and close[1] > mid_ma and close[2] < mid_ma
+bear_trigger = bear_trend  and close[1] < mid_ma and close[2] > mid_ma
+
+plot(mid_ma, color=color.white)
+
+start_date = timestamp("2021-09-21T00:00:00")
 if(time > start_date)
-    if long
-        strategy.entry("LONG", strategy.long)
-    if exit
-        strategy.close("LONG")
+    if bull_trend
+        strategy.entry("L", strategy.long)
+        strategy.close("S")
+        
+    if bear_trigger
+        strategy.entry("S", strategy.short)
+        strategy.close("L")
+    
+    exitCondition = strategy.position_avg_price * (1 - 0.10)
+    
+    if strategy.position_size < 0
+        strategy.exit("S", limit=exitCondition)
