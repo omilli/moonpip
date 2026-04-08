@@ -15,17 +15,15 @@ bear_trigger = bear_trend  and close[1] < mid_ma and close[2] > mid_ma
 
 plot(mid_ma, color=color.white)
 
-start_date = timestamp("2021-09-21T00:00:00")
-if(time > start_date)
-    if bull_trend
-        strategy.entry("L", strategy.long)
-        strategy.close("S")
-        
-    if bear_trigger
-        strategy.entry("S", strategy.short)
-        strategy.close("L")
+if bull_trend
+    strategy.entry("L", strategy.long)
+    strategy.close("S")
     
-    exitCondition = strategy.position_avg_price * (1 - 0.10)
-    
-    if strategy.position_size < 0
-        strategy.exit("S", limit=exitCondition)
+if bear_trigger
+    strategy.entry("S", strategy.short)
+    strategy.close("L")
+
+exitCondition = strategy.position_avg_price * (1 - 0.10)
+
+if strategy.position_size < 0
+    strategy.exit("S", limit=exitCondition)
