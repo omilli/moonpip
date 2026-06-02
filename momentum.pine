@@ -4,29 +4,37 @@
 //@version=5
 
 indicator('Momentum')
-// ZONES
+
+// --- INPUTS ---
 int bull_level = 75
 int bear_level = 25
 color bull_color = color.red
 color bear_color = color.green
+
+// Divergence Settings
+div_lookback = input.int(4, title="Divergence Lookback (Pivot Length)")
+
+// --- ZONES ---
 hline(100, color = color.new(bull_color, 0), linestyle = hline.style_solid)
 hline(bull_level, color = color.new(bull_color, 60), linestyle = hline.style_dashed)
 hline(50, color=color.new(color.white, 70))
 hline(bear_level, color = color.new(bear_color, 60), linestyle = hline.style_dashed)
 hline(0, color = color.new(bear_color, 0), linestyle = hline.style_solid)
-// RSI
+
+// --- RSI ---
 series float rsi = ta.rsi(close, 7)
-// STOCH
+
+// --- STOCH ---
 series float stoch = ta.sma(ta.stoch(close, high, low, 13), 3)
-//plot(stoch, color=#0daeee)
-// WAVES
+
+// --- WAVES ---
 series float waves_high_low_close_3 = hlc3 
 series float waves_ema = ta.ema(waves_high_low_close_3, 13)
 series float waves_dma = ta.ema(math.abs(waves_high_low_close_3 - waves_ema), 13)
 float ci = (waves_high_low_close_3 - waves_ema) / (0.015 * waves_dma)
 series float waves = ta.ema(ci / 1.75, 21)  + 45
-//plot(waves, color=color.rgb(231, 15, 105))
-// DI
+
+// --- DI ---
 float di_range = math.max(math.max(high-low, math.abs(high-nz(close[1]))), math.abs(low-nz(close[1])))
 float di_plus_range = high-nz(high[1]) > nz(low[1])-low ? math.max(high-nz(high[1]), 0): 0
 float di_minus_range = nz(low[1])-low > high-nz(high[1]) ? math.max(nz(low[1])-low, 0): 0
@@ -39,7 +47,8 @@ smoothed_di_minus := nz(smoothed_di_minus[1]) - (nz(smoothed_di_minus[1]) / 7) +
 float di_plus = smoothed_di_plus / smoothed_di_range * 144
 float di_minus = -(smoothed_di_minus / smoothed_di_range * 144) + 90
 float di = di_plus + ((di_minus - di_plus) / 2) * 1.1
-// PMARP
+
+// --- PMARP ---
 var pmar_array = array.new<float>(377, na)
 f_pmar (float _price, simple int _len) =>
     float ma = ta.ema (_price, _len) 
@@ -50,9 +59,9 @@ f_pmarp (simple int _pmarp_len, float _pmar) =>
         array.pop (pmar_array)
     float percentile = array.percentrank (pmar_array, 0)
 float pmar = f_pmar (close, 20)
-float pmarp = f_pmarp (377, pmar)
-//plot(pmarp, color=color.rgb(231, 15, 105))
-// VOLUME
+float pmarp = f_pmarp(377, pmar)
+
+// --- VOLUME ---
 series float typical = hlc3
 float inter = math.log(typical) - math.log(typical[1])
 series float vinter = ta.stdev(inter, 21)
@@ -63,7 +72,8 @@ float vc = volume < vmax ?  volume : vmax
 float mf = typical - typical[1]
 float vcp = mf > cutoff ? vc : (mf < -cutoff ? -vc : 0)
 float vfi = (math.sum(vcp , 144) / vave) + 55
-// BBWP
+
+// --- BBWP ---
 f_bbwp (_price, _bbwLen, _bbwpLen) =>
     float _basis = ta.ema (_price, _bbwLen)
     float _dev = ta.stdev (_price, _bbwLen)
@@ -73,11 +83,12 @@ f_bbwp (_price, _bbwLen, _bbwpLen) =>
     for _i = 1 to _len by 1
         _bbwSum += (_bbw[_i] > _bbw ? 0 : 1)
         _bbwSum
-    _return = bar_index >= _bbwLen ? (_bbwSum / _len) * 100 : na
+    _return = bar_index >= _bbwpLen ? (_bbwSum / _len) * 100 : na
     _return
 bbwp = f_bbwp (close, 22, 233)
 bbwp_ma = ta.ema (bbwp, 5)
-// VOLATILITY
+
+// --- VOLATILITY ---
 float volatility = (bbwp / 2) * 2
 if volatility > 100 
     volatility:= 100
@@ -87,9 +98,71 @@ volatility_mid = plot(50, color= color.new(color.black, 100))
 volatility_lower = plot(100 - (volatility_ratio + 50), 'BBWP', color.new(color.orange, 100))
 fill(volatility_upper, volatility_mid, color.new(color.white, 80))
 fill(volatility_lower, volatility_mid, color.new(color.white, 80))
-// MOMENTUM
+
+// --- MOMENTUM ---
 float momentum = (((stoch + rsi + waves + di + pmarp + vfi) / 6) * 1.1) -5
 series float momentum_ma = ta.ema((momentum * 1.1) - 5 , 5)
 
 plot(momentum, color = color.white)
 plot(momentum_ma, color = color.yellow)
+
+// ==========================================
+// --- DIVERGENCE LINES (PIVOT TO PIVOT) ---
+// ==========================================
+
+float ph = ta.pivothigh(momentum, div_lookback, div_lookback)
+float pl = ta.pivotlow(momentum, div_lookback, div_lookback)
+
+// Track previous and current pivot details for Highs
+var float prev_high_mom = na, var float last_high_mom = na
+var float prev_high_price = na, var float last_high_price = na
+var int prev_high_bar = na, var int last_high_bar = na
+
+// Track previous and current pivot details for Lows
+var float prev_low_mom = na, var float last_low_mom = na
+var float prev_low_price = na, var float last_low_price = na
+var int prev_low_bar = na, var int last_low_bar = na
+
+// When a new Momentum High Pivot is confirmed
+if not na(ph)
+    // Shift current to previous
+    prev_high_mom := last_high_mom
+    prev_high_price := last_high_price
+    prev_high_bar := last_high_bar
+    
+    // Update current
+    last_high_mom := ph
+    last_high_price := high[div_lookback]
+    last_high_bar := bar_index - div_lookback
+    
+    // Check for Bearish Divergence (requires 2 confirmed highs)
+    if not na(prev_high_mom)
+        // Regular Bearish: Price Higher High & Momentum Lower High
+        if last_high_price > prev_high_price and last_high_mom < prev_high_mom
+            line.new(prev_high_bar, prev_high_mom, last_high_bar, last_high_mom, color=color.red, width=2, style=line.style_solid)
+            
+        // Hidden Bearish: Price Lower High & Momentum Higher High
+        else if last_high_price < prev_high_price and last_high_mom > prev_high_mom
+            line.new(prev_high_bar, prev_high_mom, last_high_bar, last_high_mom, color=color.red, width=2, style=line.style_dashed)
+
+// When a new Momentum Low Pivot is confirmed
+if not na(pl)
+    // Shift current to previous
+    prev_low_mom := last_low_mom
+    prev_low_price := last_low_price
+    prev_low_bar := last_low_bar
+    
+    // Update current
+    last_low_mom := pl
+    last_low_price := low[div_lookback]
+    last_low_bar := bar_index - div_lookback
+    
+    // Check for Bullish Divergence (requires 2 confirmed lows)
+    if not na(prev_low_mom)
+        // Regular Bullish: Price Lower Low & Momentum Higher Low
+        if last_low_price < prev_low_price and last_low_mom > prev_low_mom
+            line.new(prev_low_bar, prev_low_mom, last_low_bar, last_low_mom, color=color.green, width=2, style=line.style_solid)
+            
+        // Hidden Bullish: Price Higher Low & Momentum Lower Low
+        else if last_low_price > prev_low_price and last_low_mom < prev_low_mom
+            line.new(prev_low_bar, prev_low_mom, last_low_bar, last_low_mom, color=color.green, width=2, style=line.style_dashed)
